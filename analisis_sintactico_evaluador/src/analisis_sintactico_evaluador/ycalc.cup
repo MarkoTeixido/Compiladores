@@ -1,0 +1,222 @@
+/*
+  File Name: ycalc.cup
+  To Create: > java java_cup.Main < ycalc.cup
+*/
+package analisis_sintactico_evaluador;    
+   
+/* ----------------------Preliminary Declarations Section--------------------*/
+   
+import java_cup.runtime.*;
+   
+parser code {:
+    SymbolosLista simbolsList = new SymbolosLista();
+    int global = -4;
+    public void report_error(String message, Object info) {
+   
+        /* Create a StringBuffer called 'm' with the string 'Error' in it. */
+        StringBuffer m = new StringBuffer("Error");
+   
+        /* Check if the information passed to the method is the same
+           type as the type java_cup.runtime.Symbol. */
+        if (info instanceof java_cup.runtime.Symbol) {
+            /* Declare a java_cup.runtime.Symbol object 's' with the
+               information in the object info that is being typecasted
+               as a java_cup.runtime.Symbol object. */
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+   
+            /* Check if the line number in the input is greater or
+               equal to zero. */
+            if (s.left >= 0) {                
+                /* Add to the end of the StringBuffer error message
+                   the line number of the error in the input. */
+                m.append(" in line "+(s.left+1));   
+                /* Check if the column number in the input is greater
+                   or equal to zero. */
+                if (s.right >= 0)                    
+                    /* Add to the end of the StringBuffer error message
+                       the column number of the error in the input. */
+                    m.append(", column "+(s.right+1));
+            }
+        }
+   
+        /* Add to the end of the StringBuffer error message created in
+           this method the message that was passed into this method. */
+        m.append(" : "+message);
+   
+        /* Print the contents of the StringBuffer 'm', which contains
+           an error message, out on a line. */
+        System.err.println(m);
+    }
+   
+    /* Change the method report_fatal_error so when it reports a fatal
+       error it will display the line and column number of where the
+       fatal error occurred in the input as well as the reason for the
+       fatal error which is passed into the method in the object
+       'message' and then exit.*/
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        System.exit(1);
+    }
+:};
+   
+
+   
+/* ------------Declaration of Terminals and Non Terminals Section----------- */
+   
+
+terminal           SEMI, PLUS, MINUS, TIMES, DIVIDE, LPAREN, RPAREN;
+terminal           NUMBER, AND, OR, TRUE, FALSE, TYPEINT, TYPEBOOL, RETURN, ASSIG;
+terminal  String ID;   
+non terminal  	Integer type;
+non terminal     DefSymbolo expr;
+non terminal     program, ld, ls, d, s;
+   
+
+/* -------------Precedence and Associatively of Terminals Section----------- */
+   
+/*
+  Precedence of non terminals could be defined here.  If you do define
+  precedence here you won't need to worry about precedence in the
+  Grammar Section, i.e. that TIMES should have a higher precedence
+  than PLUS.
+  
+  The precedence defined here would look something like this where the
+  lower line always will have higher precedence than the line before it.
+*/   
+
+  precedence left AND;
+  precedence left OR; 
+  precedence left PLUS, MINUS; 
+  precedence left TIMES, DIVIDE; 
+
+
+/* ----------------------------Grammar Section-------------------- */
+   
+
+   
+   program ::= ld ls {: System.out.println("mov %rbp, %rsp");
+                        System.out.println("pop %rbp");
+                        System.out.println("ret"); 
+                     :}
+               | ls {: System.out.println("mov %rbp, %rsp");
+                       System.out.println("pop %rbp");
+                       System.out.println("ret"); 
+                    :}
+               ;   
+   ld ::= d ld
+          | d
+          ;
+   ls ::= s ls
+          | s
+          ;     
+   d ::= type:t ID:i ASSIG expr:e SEMI
+                                    {: if (simbolsList.contains(i)) {
+                                           
+                                          System.out.println("Error: multiples definiciones de '"+i+"'");
+                                          System.exit(1);
+                                       }
+                                       simbolsList.add(new DefSymbolo(i, t, e.value, global, false)); 
+                                       global += -4;
+                                       
+                                       if (e.bandera == true) {
+                                            System.out.println("mov $"+ e.value + ", "+ simbolsList.get(i).offset + "(%rbp)");
+                                       }else{
+                                            System.out.println("mov "+ e.offset + "(%rbp) , "+ simbolsList.get(i).offset + "(%rbp)");
+                                       }
+                                       
+                                    :}
+         ;
+   s ::= ID:i ASSIG expr:e SEMI {: if (!simbolsList.contains(i)) {
+                                          System.out.println("Error: variable no declarada '"+i+"'");
+                                          System.exit(1);
+                                       }
+                                       simbolsList.get(i).value = e.value; 
+                                       if (e.bandera == true) {
+                                            System.out.println("mov $"+ e.value + ", "+ simbolsList.get(i).offset + "(%rbp)");
+                                       }else{
+                                            System.out.println("mov "+ e.offset + "(%rbp) , "+ simbolsList.get(i).offset + "(%rbp)");
+                                       }
+                                    :}
+         | RETURN expr:e SEMI {: { if (e.bandera == true) {
+                                            System.out.println("mov $" + e.value +", %rcx");
+                                            System.out.println("call print");
+                                       }else{
+                                            System.out.println("mov " + e.offset +"(%rbp), %rcx");
+                                            System.out.println("call print");
+                                       } 
+                                 }
+                                       
+                               :}
+         ;
+   type ::= TYPEBOOL {: RESULT = new Integer(0); :}
+         | TYPEINT {: RESULT = new Integer(1); :}
+         ; 
+   expr      ::=   expr:e1 AND  expr:e2   {: if (e1.type == 1 || e2.type == 1) {
+                                          System.out.println("Error: operacion boleana no valida con numeros");
+                                          System.exit(1);
+                                       }
+                                       RESULT = new DefSymbolo("temp", 0, 0, 0, false);
+                                    :}
+                 | expr:e1 OR   expr:e2   {: if (e1.type == 1 || e2.type == 1) {
+                                          System.out.println("Error: operacion boleana no valida con numeros");
+                                          System.exit(1);
+                                       }
+                                       RESULT = new DefSymbolo("temp", 0, 0, 0, false);
+                                       :}
+                 | expr:e1 PLUS expr:e2 {: if (e1.type == 0 || e2.type == 0) {
+                                             System.out.println("Error: operacion aritmetica no valida con booleanos");
+                                             System.exit(1);
+                                          }
+                                          DefSymbolo aux = new DefSymbolo("PLUS", e1.type, e1.value + e2.value, global, false);
+                                          RESULT = aux;
+                                          global += -4;
+                                          
+                                          if (e1.bandera == true) {
+                                             System.out.println("mov $" + e1.value + ", %rax");
+                                          }else{
+                                             System.out.println("mov " + e1.offset + "(%ebp), %rax");
+                                          }
+
+                                          if (e2.bandera == true) {
+                                             System.out.println("add $" + e2.value + ", %rax");
+                                          }else{
+                                             System.out.println("add " + e2.offset + "(%ebp), %rax");
+                                          }
+                                          System.out.println("add %rax, " + aux.offset + "(%ebp)");
+                                          :}
+                 | expr:e1 MINUS expr:e2  {: if (e1.type == 0 || e2.type == 0) {
+                                                System.out.println("Error: operacion no valida con booleanos");
+                                                System.exit(1);
+                                             }
+                                             RESULT = new DefSymbolo("MINUS", e1.type, e1.value - e2.value, global, false);
+                                             global += -4;
+                                          :} 
+                 | expr:e1 TIMES expr:e2  {: if (e1.type == 0 || e2.type == 0) {
+                                                System.out.println("Error: operacion no valida con booleanos");
+                                                System.exit(1);
+                                             }
+                                             RESULT = new DefSymbolo("TIMES", e1.type, e1.value * e2.value, global, false);
+                                             global +=-4;
+                                          :}
+                 | expr:e1 DIVIDE expr:e2 {: if (e1.type == 0 || e2.type == 0){
+                                                System.out.println("Error: tipos incompatibles en la division");
+                                                System.exit(1);
+                                             }
+                                             if (e2.value == 0) {
+                                                System.out.println("Error: division por cero");
+                                                System.exit(1);
+                                             }
+                                             RESULT = new DefSymbolo("DIV", 1, e1.value / e2.value, global, false);
+                                             global += -4;
+                                          :}  
+                 | LPAREN expr:e RPAREN  {: RESULT = new DefSymbolo("LPAREN", e.type, e.value, 0, false); :}
+                 | NUMBER:e  {: RESULT = new DefSymbolo("NUMBER", new Integer(1), new Integer((int) e), 0, true); :}
+                 | ID:i      {: if (!simbolsList.contains(i)) {
+                                    System.out.println("Error: variable '"+i+"' no definida");
+                                    System.exit(1);
+                                 }
+                                 RESULT = simbolsList.get(i); 
+                              :}
+                 | TRUE {: RESULT = new DefSymbolo("BOOL", new Integer(0), new Integer(1), 0, true); :}
+                 | FALSE {: RESULT = new DefSymbolo("BOOL", new Integer(0), new Integer(0), 0, true);; :}
+                 ;
