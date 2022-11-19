@@ -17,7 +17,7 @@ public class Main {
   static public void main(String argv[]) {    
     /* Start the parser */
     try {
-      parser p = new parser(new Lexer(new FileReader("C://Users//teixi//OneDrive//Documentos//NetBeansProjects//analisis_sintactico_evaluador//src//analisis_sintactico_evaluador//test4.txt/")));
+      parser p = new parser(new Lexer(new FileReader("C://Users//teixi//OneDrive//Documentos//NetBeansProjects//analisis_sintactico_evaluador//src//analisis_sintactico_evaluador//test.txt/")));
       Object result = p.parse().value;      
       //System.out.println("Parser finished successfully."); 
     } catch (Exception e) {
